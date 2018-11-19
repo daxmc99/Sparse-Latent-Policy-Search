@@ -4,12 +4,15 @@ from numpy.linalg import inv
 best_size=10
 sample_size=20
 number_of_groups=2
-dimensions_per_group=np.array([7,7]) 
+#two degrees of freedom per group, knee and
+#dimensions_per_group=np.array([7,7]) 
+dimensions_per_group=np.array([2,2])
 latent_dimension_size=6
-orginial_feature_dimension_size=6
-Time=10
+orginial_feature_dimension_size=19
+Time=50
 max_iterations=300
 max_inner_iterations=20
+#don't touch 
 sigma2_M=100
 anti_convergence_factor=1.5
 tauA=1000

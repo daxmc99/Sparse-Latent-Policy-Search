@@ -8,7 +8,9 @@ import time
 import math
 from datetime import datetime
 import socket
-from configuration import *     
+from configuration import * 
+from Environment import BipedalWalkerEnvironment
+from sklearn import preprocessing 
 
 def get_samples(W=None,M=None,tau=None,Latent=None,dimensions_per_group=None,Time=None,rendering=0,*args,**kwargs):
 
@@ -35,110 +37,64 @@ def get_samples(W=None,M=None,tau=None,Latent=None,dimensions_per_group=None,Tim
     Z=np.random.randn(Latent,BasisDim)
     Actions=np.zeros([DoF,Time])
     reward=np.zeros([1,Time])
-     
+
+    ## simulator for OpenAI gym
+    env = BipedalWalkerEnvironment()
+    obs = env.reset()
+    ####
     for t in arange(0,Time).reshape(-1):
         for m in arange(0,number_of_groups).reshape(-1):
             
             startDim = sum(dimensions_per_group[:m])
+            pdb.set_trace()
             xx = scipy.stats.norm.rvs(0, inv([[tau[m][0]]])[0][0] + 2, (dimensions_per_group[m],BasisDim))
             xx = xx/2
             time.sleep(0.05)
+            #pdb.set_trace()
             Actions[startDim:(startDim + dimensions_per_group[m]),t]=dot(dot(W[m][0],Z),Basisfunctions[:,t]) + dot(M[m][0],Basisfunctions[:,t]) + dot(xx,Basisfunctions[:,t])
-        
+            # ValueError: shapes (2,6) and (19,) not aligned: 6 (dim 1) != 19 (dim 0)
+
+            # Basisfunction: (19,50)
+
+            # !dot(M[m][0],Basisfunctions[:,t])
+            # *** ValueError: shapes (2,6) and (19,) not aligned: 6 (dim 1) != 19 (dim 0)
+            # when Time=10
+            #   array([0., 0.])
+            
+            # This value M[m][0].shape() = (2,original_feature_dimension)       
         
         CurrentAngle=Actions[:,t]
         
+        #print(CurrentAngle)
+        #the below code is for interacting with the simulator
         
         
-        try:
+        #normalize values before sending them in as actions
+        # no idea if if this works
+        action_norm = preprocessing.normalize([CurrentAngle])
+        action_norm = action_norm.reshape(4)
+
+        #print(action_norm)
+        
+        state = 0
+        state_t2,reward_t,terminal = env.step(state,action_norm,rendering)
+        
+
+        ## REWARD CALCULATION
+
+        reward[0][t] = reward_t
+        if terminal == 1:
+            print("Done")
+            break
             
-            ssr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)       
-            port = 55001               
-            #ssr.connect(('192.168.125.1', port))
-            ssr.connect((ip_address, port))
-
-            ssr2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)       
-            port2 = 44000               
-            #ssr2.connect(('192.168.125.1', port2))
-            ssr2.connect((ip_address, port2))
-            # receive data from the server
-            #print(ssr.recv(1024))
-            #print(ssr2.recv(1024))
-            ssr.recv(1024)
-            ssr2.recv(1024)
-
-            # send data to the server
-            writing_main_data = [["-110.08","-128.668","51.0821","-3.07672","56.8406","-159.638","50.8102"]]
-            original_angles = ["-111.254","-134.357","-0.0150254","1.35811","110.899","-164.631","47.7262"]
-            
-            for i in range(len(writing_main_data)):
-                writing_data = writing_main_data[i]            
-                for i in range(len(writing_data)):
-                    #message = float(original_angles[i]) + CurrentAngle[i]/100
-                    message = CurrentAngle[i]/40
-                    message = str(message)
-                    message = message.encode('utf-8')
-
-                    message2 = CurrentAngle[i+7]/40
-                    message2 = str(message2)
-                    message2 = message2.encode('utf-8')
-
-                    #pdb.set_trace()
-                    ssr.send(message)
-                    #print(ssr.recv(1024))
-                    ssr.recv(1024)
-
-                    ssr2.send(message2)
-                    #print(ssr2.recv(1024))
-                    ssr2.recv(1024)
-
-                received_point = ssr.recv(1024).decode('utf-8')
-                y_received = float(received_point.strip('[]').split(',')[1])
-                height_received = float(received_point.strip('[]').split(',')[2])
-                #print(height_received,t)
-
-                received_point2 = ssr2.recv(1024).decode('utf-8')
-                y_received2 = float(received_point2.strip('[]').split(',')[1])
-                height_received2 = float(received_point2.strip('[]').split(',')[2])
-                #print(height_received2,t)
-
-
-            if(t == Time -1):
-                ss = "3333"
-                ssr.send(ss.encode('utf-8'))
-                ssr.recv(1024)
-
-                ssr2.send(ss.encode('utf-8'))
-                ssr2.recv(1024)
-            else:
-                ss = "9999"
-                ssr.send(ss.encode('utf-8'))
-                ssr.recv(1024)
-
-                ssr2.send(ss.encode('utf-8'))
-                ssr2.recv(1024)
         
-        except:
-            print("You closed")
-            pdb.set_trace()
+    #reward2=exp(- reward)
 
-        expected_position = [0,142,450]
-        actual_position = [0,y_received,height_received]
-        expected_position = np.array(expected_position) 
-        actual_position = np.array(actual_position)
+    #Open AI directly gives us a reward thereby we do not need to do this.
+    #reward = dot(np.ones(reward2.shape),sum(reward2))
 
-        expected_position2 = [0,-142,450]
-        actual_position2 = [0,y_received2,height_received2]
-        expected_position2 = np.array(expected_position2)
-        actual_position2 = np.array(actual_position2)
-
-        reward1 = max(norm(actual_position - expected_position,2),0)
-        reward2 = max(norm(actual_position2 - expected_position2,2),0)
-        reward[0][t] = reward1 + reward2
-        
-    reward2=exp(- reward)
-    reward = dot(np.ones(reward2.shape),sum(reward2))
     Z=dot(Z,Basisfunctions)
+    env.close()
     return Actions,Basisfunctions,reward,Z
     
 if __name__ == '__main__':

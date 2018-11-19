@@ -6,7 +6,7 @@ from numpy.linalg import inv
 from numpy.linalg import norm
 import numpy.linalg as lin
 import os
-
+import shutil
 from update_equations import *
 from get_samples import *
 from configuration import * 
@@ -181,11 +181,15 @@ def GrouPS(*args,**kwargs):
         checkpoint = np.array([M,W,tau,alpha])
         np.save('checkpoint.npy',checkpoint)
 
-        if(Iterations_number%5 == 0):   
+        rendering = 0
+        if(Iterations_number%5 == 0):
+            if os.path.exists(str(Iterations_number)):
+                shutil.rmtree(str(Iterations_number))   
             os.mkdir(str(Iterations_number))
             np.save('./'+str(Iterations_number)+'/checkpoint.npy',checkpoint)
+            rendering=1
             
-        get_samples(W,M,tau,latent_dimension_size,dimensions_per_group,Time,rendering=1,nout=4)
+        get_samples(W,M,tau,latent_dimension_size,dimensions_per_group,Time,rendering,nout=4)
 
         print('Iteration :',Iterations_number)
     

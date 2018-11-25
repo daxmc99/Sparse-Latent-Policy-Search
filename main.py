@@ -43,7 +43,10 @@ def GrouPS(*args,**kwargs):
         alpha = checkpoint[3]
 
 
-    get_samples(W,M,tau,latent_dimension_size,dimensions_per_group,Time,rendering=1,nout=4)
+    env = BipedalWalkerEnvironment()
+    env.reset()
+
+    get_samples(env,W,M,tau,latent_dimension_size,dimensions_per_group,Time,rendering=1,nout=4)
     
     while check_if_converged:
         check_if_converged2=True
@@ -54,8 +57,16 @@ def GrouPS(*args,**kwargs):
         if sample_size==sample_size or Iterations_number == 0:
             Realization=np.empty([sample_size,1],dtype=object)
             Z_temp=np.empty([sample_size,1],dtype=object)
+            #reset for each set of samples
+            env.reset()
+            # if Iterations_number % 10 == 0:
+            #     rendering = 1
+            # else:
+            #     rendering = 0
+            rendering = 1
             for r in range(0,sample_size):
-                Actions,Basisfunctions,Reward,Zvals= get_samples(W,M,tau,latent_dimension_size,dimensions_per_group,Time,nout=4)
+
+                Actions,Basisfunctions,Reward,Zvals= get_samples(env,W,M,tau,latent_dimension_size,dimensions_per_group,Time,rendering,nout=4)
                 Realization[r][0] = {'Actions':Actions, 'Basis':Basisfunctions,'Reward':Reward}
                 Z_temp[r][0]=np.empty([Time,1],dtype=object)
                 
@@ -148,7 +159,7 @@ def GrouPS(*args,**kwargs):
             alpha_temp,valueNorm_M_mean = update_alpha(M_temp,M_old_temp,W_temp,alpha_temp,alphaB,latent_dimension_size,number_of_groups,dimensions_per_group)
             
             check_if_converged2=valueNorm_M_mean > 0.01
-            print(Iterations_number,Inner_iterations_number,valueNorm_M_mean)
+            print(Iterations_number,Inner_iterations_number,valueNorm_M_mean,sum_of_rewards)
             
             if Inner_iterations_number >= max_inner_iterations:
                 check_if_converged2=0
@@ -178,7 +189,7 @@ def GrouPS(*args,**kwargs):
         check_if_converged=Iterations_number < max_iterations
         
 
-        checkpoint = np.array([M,W,tau,alpha])
+        checkpoint = np.array([M,W,tau,alpha,sum_of_rewards])
         np.save('checkpoint.npy',checkpoint)
 
         rendering = 0
@@ -189,7 +200,7 @@ def GrouPS(*args,**kwargs):
             np.save('./'+str(Iterations_number)+'/checkpoint.npy',checkpoint)
             rendering=1
             
-        get_samples(W,M,tau,latent_dimension_size,dimensions_per_group,Time,rendering,nout=4)
+        get_samples(env,W,M,tau,latent_dimension_size,dimensions_per_group,Time,rendering,nout=4)
 
         print('Iteration :',Iterations_number)
     
@@ -200,3 +211,4 @@ if __name__ == '__main__':
     
     np.random.seed(10)
     M,W,tau,alpha,reward_over_time=GrouPS()
+    print(M,W,tau,alpha,reward_over_time,sep=" ---  ")
